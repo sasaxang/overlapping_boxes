@@ -1,3 +1,8 @@
+import streamlit as st
+
+st.title("Overlapping Boxes Demo")
+st.write("This app visualizes box overlap conditions.")
+
 import pygame
 
 pygame.init()
