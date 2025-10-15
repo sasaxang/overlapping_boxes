@@ -1,8 +1,3 @@
-import streamlit as st
-
-st.title("Overlapping Boxes Demo")
-st.write("This app visualizes box overlap conditions.")
-
 import pygame
 
 pygame.init()
@@ -23,6 +18,7 @@ boxes = [
 
 dragging = None
 offset_x = offset_y = 0
+top_box_index = 1  # Controls which box is drawn last (on top)
 
 
 def draw_axes():
@@ -63,23 +59,12 @@ def draw_conditions(b1, b2):
 
     for i, (label1, val1, op, label2, val2) in enumerate(conditions):
         symbol, valid = compare(val1, val2, op)
-
-        if valid:
-            color = (0, 150, 0)  # Green for true
-        else:
-            color = (200, 0, 0)  # Red for false
-
+        color = (0, 150, 0) if valid else (200, 0, 0)
         line = f"{label1} {symbol} {label2}    ({val1} {symbol} {val2})"
         line_y = HEIGHT - 100 + i * 22
-
         line_surface = condition_font.render(line, True, (0, 0, 0))
         screen.blit(line_surface, (10, line_y))
-
-        center_x = 350
-        center_y = line_y + 8
-        radius = 7
-
-        pygame.draw.circle(screen, color, (center_x, center_y), radius)
+        pygame.draw.circle(screen, color, (350, line_y + 8), 7)
 
 
 # --- Main Loop ---
@@ -88,48 +73,37 @@ while running:
     screen.fill((255, 255, 255))
     draw_axes()
 
-    # --- Draw Overlap First (before individual boxes) ---
-    rect1 = pygame.Rect(boxes[0]["x"], boxes[0]["y"], boxes[0]["w"], boxes[0]["h"])
-    rect2 = pygame.Rect(boxes[1]["x"], boxes[1]["y"], boxes[1]["w"], boxes[1]["h"])
+    # Logical box references (fixed)
+    box1 = next(b for b in boxes if b["number"] == "1")
+    box2 = next(b for b in boxes if b["number"] == "2")
 
-    overlap_rect = rect1.clip(rect2)  # Get the intersection rectangle
+    # Draw overlap first
+    rect1 = pygame.Rect(box1["x"], box1["y"], box1["w"], box1["h"])
+    rect2 = pygame.Rect(box2["x"], box2["y"], box2["w"], box2["h"])
+    overlap_rect = rect1.clip(rect2)
 
     if overlap_rect.width > 0 and overlap_rect.height > 0:
-        # Create a semi-transparent surface for the overlap
         overlap_surface = pygame.Surface((overlap_rect.width, overlap_rect.height), pygame.SRCALPHA)
-        # Use a distinct color for the overlap, e.g., purple from mixing red and blue
-        overlap_color = (128, 0, 128, 180)  # R, G, B, Alpha (180 out of 255 for transparency)
-        pygame.draw.rect(overlap_surface, overlap_color, overlap_surface.get_rect(), 0)
+        pygame.draw.rect(overlap_surface, (128, 0, 128, 180), overlap_surface.get_rect(), 0)
         screen.blit(overlap_surface, overlap_rect.topleft)
 
-    # --- Draw Transparent Boxes and their Numbers/Labels ---
-    for i, box in enumerate(boxes):
-        # Create a new Surface for each box with SRCALPHA flag for transparency
+    # Draw boxes (bottom first, then top)
+    for i in [1 - top_box_index, top_box_index]:
+        box = boxes[i]
         box_surface = pygame.Surface((box["w"], box["h"]), pygame.SRCALPHA)
-
-        # Define transparency level (0-255, 255 is opaque)
-        alpha_level = 150  # Example: 150 out of 255, so it's quite transparent
-
-        # Fill the box surface with its color and transparency
-        box_color_with_alpha = box["color"] + (alpha_level,)
-        pygame.draw.rect(box_surface, box_color_with_alpha, box_surface.get_rect(), 0)  # Fill
-        pygame.draw.rect(box_surface, box["color"], box_surface.get_rect(), 2)  # Border (opaque)
-
-        # Blit the box surface onto the main screen
+        pygame.draw.rect(box_surface, box["color"] + (150,), box_surface.get_rect(), 0)
+        pygame.draw.rect(box_surface, box["color"], box_surface.get_rect(), 2)
         screen.blit(box_surface, (box["x"], box["y"]))
-
-        # Draw box number and corner labels (these remain opaque)
         screen.blit(big_font.render(box["number"], True, (0, 0, 0)),
                     (box["x"] + box["w"] // 2 - 10, box["y"] + box["h"] // 2 - 18))
-        screen.blit(font.render(f"X{i + 1}_u,Y{i + 1}_u", True, (0, 0, 0)), (box["x"] - 5, box["y"] - 15))
-        screen.blit(font.render(f"X{i + 1}_l,Y{i + 1}_l", True, (0, 0, 0)),
+        screen.blit(font.render(f"X{box['number']}_u,Y{box['number']}_u", True, (0, 0, 0)),
+                    (box["x"] - 5, box["y"] - 15))
+        screen.blit(font.render(f"X{box['number']}_l,Y{box['number']}_l", True, (0, 0, 0)),
                     (box["x"] + box["w"] - 60, box["y"] + box["h"] + 5))
-
         draw_guides(box["x"], box["y"])
         draw_guides(box["x"] + box["w"], box["y"] + box["h"])
 
-    draw_conditions(boxes[0], boxes[1])
-
+    draw_conditions(box1, box2)
     pygame.display.flip()
 
     for event in pygame.event.get():
@@ -138,29 +112,21 @@ while running:
 
         elif event.type == pygame.MOUSEBUTTONDOWN:
             mx, my = event.pos
-            # Iterate boxes in reverse order so that clicking on an overlapping box
-            # selects the one on top for dragging.
             for i in reversed(range(len(boxes))):
                 box = boxes[i]
-                rx, ry, rw, rh = box["x"], box["y"], box["w"], box["h"]
-
-                if rx < mx < rx + rw and ry < my < ry + rh:
+                if box["x"] < mx < box["x"] + box["w"] and box["y"] < my < box["y"] + box["h"]:
                     dragging = i
-                    offset_x = mx - rx
-                    offset_y = my - ry
-                    # Bring the dragged box to the front (visual layer)
-                    # This ensures the dragged box is always drawn last (on top)
-                    boxes.append(boxes.pop(i))
+                    offset_x = mx - box["x"]
+                    offset_y = my - box["y"]
+                    top_box_index = i  # Update visual layering
                     break
 
         elif event.type == pygame.MOUSEBUTTONUP:
             dragging = None
 
-        elif event.type == pygame.MOUSEMOTION:
+        elif event.type == pygame.MOUSEMOTION and dragging is not None:
             mx, my = event.pos
-
-            if dragging is not None:
-                boxes[dragging]["x"] = mx - offset_x
-                boxes[dragging]["y"] = my - offset_y
+            boxes[dragging]["x"] = mx - offset_x
+            boxes[dragging]["y"] = my - offset_y
 
 pygame.quit()
