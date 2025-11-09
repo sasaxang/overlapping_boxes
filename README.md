@@ -83,7 +83,7 @@ Observe how the purple overlap area appears/disappears precisely when all four c
 
 (Once you run the code, you can capture a screenshot and replace this placeholder.)
 
-![Screenshot of the Pygame Box Overlap Visualizer](screenshot.png)
+![Screenshot of the Pygame Box Overlap Visualizer](AABB _Conditions_Visualizer_screenshot.png)
 
 ## License
 
