@@ -81,7 +81,7 @@ Observe how the purple overlap area appears/disappears precisely when all four c
 
 ## Screenshot
 
-![Screenshot of AABB Conditions Visualizer](AABB_Conditions_Visualizer_screenshot.png)
+![Screenshot of AABB Conditions Visualizer](AABB _Conditions_Visualizer_screenshot.png)
 
 ## License
 
